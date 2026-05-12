@@ -1,12 +1,46 @@
+import { useRef, useState } from 'react'
+import { Download, Upload } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Legend, ReferenceLine,
 } from 'recharts'
-import { getAllEntries, getAllSessions, getStepGoal } from '../utils/storage'
+import { getAllEntries, getAllSessions, getStepGoal, exportBackup, importBackup } from '../utils/storage'
 import { getLastNDays, getShortDay, getStreak } from '../utils/dateUtils'
 import type { ExerciseType } from '../types'
 
 export default function ProgressView() {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const handleExport = () => {
+    const json = exportBackup()
+    const date = new Date().toISOString().slice(0, 10)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fitdiary-backup-${date}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        importBackup(ev.target?.result as string)
+        setImportMsg({ ok: true, text: 'Backup restored — reloading…' })
+        setTimeout(() => window.location.reload(), 1200)
+      } catch {
+        setImportMsg({ ok: false, text: 'Import failed: invalid backup file.' })
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
   const entries = getAllEntries()
   const sessions = getAllSessions()
   const stepGoal = getStepGoal()
@@ -106,6 +140,31 @@ export default function ProgressView() {
             <Bar dataKey="walk"     stackId="a" fill="#3b82f6" name="Walk" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Data backup */}
+      <div className="bg-slate-800 rounded-2xl p-4 space-y-3">
+        <h2 className="text-slate-200 font-semibold text-sm">Data</h2>
+        <p className="text-slate-500 text-xs">Export a backup of all your FitDiary data, or restore from a previous backup file.</p>
+        {importMsg && (
+          <p className={`text-xs font-medium ${importMsg.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+            {importMsg.text}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <Download size={15} />
+            Export
+          </button>
+          <label className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer">
+            <Upload size={15} />
+            Import
+            <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+          </label>
+        </div>
       </div>
 
       {/* Session breakdown */}

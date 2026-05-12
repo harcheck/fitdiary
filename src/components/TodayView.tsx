@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Flame, Activity, Plus, Trash2, Dumbbell, Footprints, Wind, Check, Pencil } from 'lucide-react'
+import { RotateCcw, Plus, Trash2, Dumbbell, Footprints, Wind, Check, Pencil } from 'lucide-react'
 import type { DailyEntry, ExerciseSession, ExerciseType } from '../types'
 import { today, formatDate, getStreak } from '../utils/dateUtils'
 import { getAllEntries, getStepGoal } from '../utils/storage'
@@ -19,6 +19,8 @@ const TYPE_CONFIG: Record<ExerciseType, { label: string; color: string; bg: stri
   strength: { label: 'Strength', color: 'text-amber-400',  bg: 'bg-amber-900/30',  border: 'border-amber-800/50'  },
   walk:     { label: 'Walk',     color: 'text-blue-400',   bg: 'bg-blue-900/30',   border: 'border-blue-800/50'   },
 }
+
+const MEAL_LABELS = ['Meal', 'Snack', 'Meal', 'Snack', 'Meal']
 
 function TypeIcon({ type, size = 20 }: { type: ExerciseType; size?: number }) {
   if (type === 'yoga') return <Wind size={size} />
@@ -42,8 +44,9 @@ export default function TodayView({ entry, sessions, onUpdate, onAddSession, onD
   const stepPct = Math.min(100, (entry.steps / goal) * 100)
   const motivation = MOTIVATIONS[new Date().getDay() % MOTIVATIONS.length]
   const streak = getStreak(getAllEntries())
+  const meals = entry.meals?.length === 5 ? entry.meals : [false, false, false, false, false]
 
-  const allDone = entry.warmupDone && entry.mobilityDone && sessions.length > 0
+  const allDone = entry.carsDone && sessions.length > 0
 
   const commitSteps = () => {
     const val = Math.max(0, parseInt(stepInput) || 0)
@@ -55,6 +58,12 @@ export default function TodayView({ entry, sessions, onUpdate, onAddSession, onD
   const openStepEdit = () => {
     setStepInput(String(entry.steps))
     setEditingSteps(true)
+  }
+
+  const toggleMeal = (i: number) => {
+    const next = [...meals]
+    next[i] = !next[i]
+    onUpdate({ meals: next })
   }
 
   return (
@@ -128,37 +137,73 @@ export default function TodayView({ entry, sessions, onUpdate, onAddSession, onD
         <div className="text-slate-500 text-xs mt-1.5">{Math.round(stepPct)}% of {goal.toLocaleString()} goal</div>
       </div>
 
-      {/* Routines */}
-      <div className="grid grid-cols-2 gap-3">
-        {([
-          { key: 'warmupDone' as const, label: 'Warmup', Icon: Flame, desc: 'Daily warmup' },
-          { key: 'mobilityDone' as const, label: 'Mobility', Icon: Activity, desc: 'Mobility work' },
-        ]).map(({ key, label, Icon, desc }) => {
-          const done = entry[key]
-          return (
-            <button
-              key={key}
-              onClick={() => onUpdate({ [key]: !done })}
-              className={`rounded-2xl p-4 flex flex-col items-center gap-2 transition-all border ${
-                done
-                  ? 'bg-emerald-900/40 border-emerald-600/50'
-                  : 'bg-slate-800 border-slate-700 hover:border-slate-600'
-              }`}
-            >
-              <Icon
-                size={30}
-                className={done ? 'text-emerald-400' : 'text-slate-500'}
-                strokeWidth={1.8}
-              />
-              <span className={`font-semibold text-sm ${done ? 'text-emerald-300' : 'text-slate-300'}`}>
-                {label}
-              </span>
-              <span className={`text-xs ${done ? 'text-emerald-500' : 'text-slate-500'}`}>
-                {done ? 'Done ✓' : desc}
-              </span>
-            </button>
-          )
-        })}
+      {/* CARS */}
+      <button
+        onClick={() => onUpdate({ carsDone: !entry.carsDone })}
+        className={`w-full rounded-2xl p-4 flex items-center gap-3 transition-all border ${
+          entry.carsDone
+            ? 'bg-emerald-900/40 border-emerald-600/50'
+            : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+        }`}
+      >
+        <RotateCcw
+          size={26}
+          className={entry.carsDone ? 'text-emerald-400' : 'text-slate-500'}
+          strokeWidth={1.8}
+        />
+        <div className="flex-1 text-left">
+          <div className={`font-semibold text-sm ${entry.carsDone ? 'text-emerald-300' : 'text-slate-300'}`}>
+            CARS
+          </div>
+          <div className={`text-xs ${entry.carsDone ? 'text-emerald-500' : 'text-slate-500'}`}>
+            {entry.carsDone ? 'Done ✓' : 'Controlled Articular Rotations'}
+          </div>
+        </div>
+        {entry.carsDone && <Check size={18} className="text-emerald-400 flex-shrink-0" />}
+      </button>
+
+      {/* Food Intake */}
+      <div className="bg-slate-800 rounded-2xl p-4">
+        <span className="text-slate-400 text-xs font-semibold uppercase tracking-widest block mb-3">
+          Food Intake
+        </span>
+        <div className="grid grid-cols-5 gap-2">
+          {MEAL_LABELS.map((label, i) => {
+            const checked = meals[i]
+            return (
+              <button
+                key={i}
+                onClick={() => toggleMeal(i)}
+                className={`flex flex-col items-center gap-1.5 rounded-xl py-3 px-1 border transition-all ${
+                  checked
+                    ? 'bg-emerald-900/40 border-emerald-600/50'
+                    : 'bg-slate-700/50 border-slate-700 hover:border-slate-600'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                  checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-500'
+                }`}>
+                  {checked && <Check size={11} className="text-white" strokeWidth={3} />}
+                </div>
+                <span className={`text-[11px] font-medium leading-none ${checked ? 'text-emerald-300' : 'text-slate-500'}`}>
+                  {label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Daily Notes */}
+      <div className="bg-slate-800 rounded-2xl p-4">
+        <span className="text-slate-400 text-xs font-semibold uppercase tracking-widest block mb-2">Notes</span>
+        <textarea
+          value={entry.notes ?? ''}
+          onChange={e => onUpdate({ notes: e.target.value })}
+          placeholder="Health observations, mood, motivation, ideas&#8230;"
+          rows={3}
+          className="w-full bg-slate-700/50 border border-slate-700 rounded-xl px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
+        />
       </div>
 
       {/* Sessions */}

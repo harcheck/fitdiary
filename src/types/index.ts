@@ -12,8 +12,9 @@ export interface ExerciseSession {
 export interface DailyEntry {
   date: string;
   steps: number;
-  warmupDone: boolean;
-  mobilityDone: boolean;
+  carsDone: boolean;
+  meals: boolean[];   // [meal, snack, meal, snack, meal]
+  notes: string;
 }
 
 export type TabId = 'today' | 'history' | 'progress';

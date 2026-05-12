@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Flame, Activity, ChevronDown, ChevronUp, Pencil, Check, Plus, Trash2, Dumbbell, Footprints, Wind } from 'lucide-react'
+import { RotateCcw, ChevronDown, ChevronUp, Pencil, Check, Plus, Trash2, Dumbbell, Footprints, Wind } from 'lucide-react'
 import { getAllEntries, getAllSessions, saveEntry, addSession, deleteSession } from '../utils/storage'
 import { getLastNDays, formatDate, today } from '../utils/dateUtils'
 import type { DailyEntry, ExerciseSession, ExerciseType } from '../types'
@@ -17,11 +17,17 @@ const TYPE_LABEL: Record<ExerciseType, string> = {
   walk:     'Walk',
 }
 
+const MEAL_LABELS = ['Meal', 'Snack', 'Meal', 'Snack', 'Meal']
+
 function TypeIcon({ type }: { type: ExerciseType }) {
   if (type === 'yoga') return <Wind size={14} />
   if (type === 'strength') return <Dumbbell size={14} />
   return <Footprints size={14} />
 }
+
+const emptyEntry = (date: string): DailyEntry => ({
+  date, steps: 0, carsDone: false, meals: [false, false, false, false, false], notes: '',
+})
 
 export default function HistoryView() {
   const [entries, setEntries] = useState<Record<string, DailyEntry>>(() => getAllEntries())
@@ -35,7 +41,7 @@ export default function HistoryView() {
   const days = getLastNDays(30).reverse().filter(d => d !== today())
 
   const handleUpdateEntry = (updates: Partial<DailyEntry>, date: string) => {
-    const current = entries[date] ?? { date, steps: 0, warmupDone: false, mobilityDone: false }
+    const current = entries[date] ?? emptyEntry(date)
     const next = { ...current, ...updates }
     saveEntry(next)
     setEntries(prev => ({ ...prev, [date]: next }))
@@ -76,10 +82,12 @@ export default function HistoryView() {
         const hasData = entry || sessions.length > 0
         const isOpen = expanded === date
         const isEditingSteps = editingStepsFor === date
+        const meals = entry?.meals?.length === 5 ? entry.meals : [false, false, false, false, false]
+        const mealsChecked = meals.filter(Boolean).length
 
         return (
           <div key={date} className="bg-slate-800 rounded-2xl overflow-hidden">
-            {/* Header row — click to expand/collapse */}
+            {/* Header row */}
             <button
               onClick={() => setExpanded(isOpen ? null : date)}
               className="w-full px-4 py-3 text-left transition-colors hover:bg-slate-700/60"
@@ -92,15 +100,16 @@ export default function HistoryView() {
                       {entry?.steps ? (
                         <span className="text-slate-400 text-xs">{entry.steps.toLocaleString()} steps</span>
                       ) : null}
-                      {entry?.warmupDone && (
+                      {entry?.carsDone && (
                         <span className="flex items-center gap-1 text-emerald-500 text-xs">
-                          <Flame size={10} />Warmup
+                          <RotateCcw size={10} />CARS
                         </span>
                       )}
-                      {entry?.mobilityDone && (
-                        <span className="flex items-center gap-1 text-emerald-500 text-xs">
-                          <Activity size={10} />Mobility
-                        </span>
+                      {mealsChecked > 0 && (
+                        <span className="text-slate-500 text-xs">{mealsChecked}/5 meals</span>
+                      )}
+                      {entry?.notes && (
+                        <span className="text-slate-600 text-xs italic truncate max-w-[100px]">{entry.notes}</span>
                       )}
                     </div>
                   ) : (
@@ -171,29 +180,68 @@ export default function HistoryView() {
                   )}
                 </div>
 
-                {/* Warmup + Mobility */}
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { key: 'warmupDone' as const, label: 'Warmup', Icon: Flame },
-                    { key: 'mobilityDone' as const, label: 'Mobility', Icon: Activity },
-                  ]).map(({ key, label, Icon }) => {
-                    const done = entry?.[key] ?? false
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => handleUpdateEntry({ [key]: !done }, date)}
-                        className={`rounded-xl p-3 flex items-center gap-2 transition-all border text-sm ${
-                          done
-                            ? 'bg-emerald-900/40 border-emerald-600/50 text-emerald-300'
-                            : 'bg-slate-700/50 border-slate-700 text-slate-400 hover:border-slate-600'
-                        }`}
-                      >
-                        <Icon size={15} className={done ? 'text-emerald-400' : 'text-slate-500'} />
-                        <span className="font-medium">{label}</span>
-                        {done && <Check size={13} className="text-emerald-400 ml-auto" />}
-                      </button>
-                    )
-                  })}
+                {/* CARS */}
+                <button
+                  onClick={() => handleUpdateEntry({ carsDone: !(entry?.carsDone ?? false) }, date)}
+                  className={`w-full rounded-xl p-3 flex items-center gap-2 transition-all border text-sm ${
+                    entry?.carsDone
+                      ? 'bg-emerald-900/40 border-emerald-600/50 text-emerald-300'
+                      : 'bg-slate-700/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  <RotateCcw size={15} className={entry?.carsDone ? 'text-emerald-400' : 'text-slate-500'} />
+                  <span className="font-medium">CARS</span>
+                  {entry?.carsDone && <Check size={13} className="text-emerald-400 ml-auto" />}
+                </button>
+
+                {/* Food Intake */}
+                <div>
+                  <span className="text-slate-400 text-xs font-semibold uppercase tracking-widest block mb-2">
+                    Food Intake
+                  </span>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {MEAL_LABELS.map((label, i) => {
+                      const checked = meals[i]
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            const next = [...meals]
+                            next[i] = !next[i]
+                            handleUpdateEntry({ meals: next }, date)
+                          }}
+                          className={`flex flex-col items-center gap-1.5 rounded-xl py-2.5 px-1 border transition-all ${
+                            checked
+                              ? 'bg-emerald-900/40 border-emerald-600/50'
+                              : 'bg-slate-700/50 border-slate-700 hover:border-slate-600'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                            checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-500'
+                          }`}>
+                            {checked && <Check size={10} className="text-white" strokeWidth={3} />}
+                          </div>
+                          <span className={`text-[10px] font-medium leading-none ${checked ? 'text-emerald-300' : 'text-slate-500'}`}>
+                            {label}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <span className="text-slate-400 text-xs font-semibold uppercase tracking-widest block mb-1.5">
+                    Notes
+                  </span>
+                  <textarea
+                    value={entry?.notes ?? ''}
+                    onChange={e => handleUpdateEntry({ notes: e.target.value }, date)}
+                    placeholder="Health observations, mood, motivation, ideas&#8230;"
+                    rows={2}
+                    className="w-full bg-slate-700/50 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
+                  />
                 </div>
 
                 {/* Sessions */}

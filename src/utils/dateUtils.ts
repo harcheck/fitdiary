@@ -38,7 +38,7 @@ export function getStreak(entries: Record<string, DailyEntry>): number {
   for (let i = 0; i < 365; i++) {
     const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const e = entries[ds];
-    if (!e || (!e.steps && !e.warmupDone && !e.mobilityDone)) break;
+    if (!e || (!e.steps && !e.carsDone && !e.meals?.some(Boolean))) break;
     streak++;
     d.setDate(d.getDate() - 1);
   }
